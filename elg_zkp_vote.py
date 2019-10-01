@@ -19,7 +19,7 @@ def frac_large(a,b,n):
             factor += 1
         a = (a * factor) % n
         b = (b * factor) % n
-    return (a/b)%n
+    return int(a/b)%n
 
 def enc(p,g,s,alph,m):
     pubk = comp_large(g,s,p)
@@ -107,6 +107,46 @@ def find_tally(res):
             #print('minus',x)
             return -x
 
+def menu(opts):
+    for item in enumerate(opts):
+        s = '{}) {}'.format(str(item[0]+1), item[1])
+        print(s)
+    print('{}) I\'m convinced!  I\'ll cast my real vote now.'.format(len(opts)+1))
+    c = int(input('Select option: '))
+    return c-1
+
+def zkp_voter():
+    print('\n#### VOTER {} ZKP MACHINE TEST ####'.format(len(votes)+1))
+    print('You have been selected to use ZKP to test that the machine is indeed giving proper encryptions, and not some random value (or the wrong vote)!'+'\nYou just voted 5 times to get 5 cypher-texts, or \"receipts\".  Now randomly choose some for the machine to decrypt.  That will render these votes invalid, but the machine\'s integrity will be verified.')
+    print('Generating votes and cyphers...')
+
+    my_receipts = []
+    for x in range(0, 5):
+        a = randint(1,int(0xFFFFFFFF))
+        vote = 'Cand A' if randint(0,1) == 0 else 'Cand B'
+        if vote.endswith('A'):
+            # "1" is dummy value since m not used in calculation of x
+            x = enc(q,g,s,a,1)[0]
+            y = frac_large(comp_large(h,a,q),g,q)
+        elif vote.endswith('B'):
+            m = comp_large(g,1,q)
+            x,y = enc(q,g,s,a,m)
+        my_receipts.append((vote,x,y))
+    print('\nDone!  Choose one of your receipts to feed back into the machine to decrypt.  NOTE: you can see the \'Cand A\' or \'Cand B\', but the computer cannot!\n')
+    c = 0
+    proof = 0
+    while True:
+        c = menu(my_receipts)
+        if c == len(my_receipts):
+            break
+        print('\nDecrypting {}...'.format(my_receipts[c]))
+        d = dec(q,s,my_receipts[c][1],my_receipts[c][2])
+        cand = 'B' if d == comp_large(g,1,q) else 'A'
+        print('Machine says: This vote would have been for candidate {}'.format(cand))
+        proof+=1
+        cert = 1-pow(2,-1*proof)
+        print('You can now be {}% sure that this machine gives honest encryptions.\n'.format(round(100*cert,5)))
+
 def main():
     init()
 
@@ -116,6 +156,7 @@ def main():
     votes.append(get_voter_input())
     votes.append(get_voter_input())
     votes.append(get_voter_input())
+    zkp_voter()
     votes.append(get_voter_input())
 
     print('\n\n#### PUBLIC BULLETIN BOARD ####')
@@ -133,7 +174,6 @@ def main():
     win = 'A' if t < 0 else 'B'
     print('Candidate {} wins by {} votes!!!'.format(win,abs(t)))
     #print('Result should be {}'.format(smsg(messages)))
-
 
 if __name__=='__main__':
     main()
